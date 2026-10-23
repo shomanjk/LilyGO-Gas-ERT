@@ -2,7 +2,9 @@
 
 #include <cmath>
 
+#ifdef USE_MQTT
 #include "esphome/components/mqtt/mqtt_client.h"
+#endif
 #include "esphome/core/hal.h"
 #include "esphome/core/helpers.h"
 #include "scm_format.h"
@@ -199,8 +201,13 @@ bool ErtScmComponent::dump(remote_base::RemoteReceiveData data) {
 }
 
 void ErtScmComponent::publish_(const ScmPacket &p, float rssi) {
+#ifdef USE_MQTT
   auto *client = mqtt::global_mqtt_client;
-  if (client == nullptr || !client->is_connected()) {
+  if (client == nullptr) {
+    // API-only build (no mqtt: block): local sensors already updated.
+    return;
+  }
+  if (!client->is_connected()) {
     // Readings are cumulative; the meter's next transmission will be published.
     this->publish_skipped_++;
     ESP_LOGW(TAG, "MQTT not connected; not publishing id=%" PRIu32, p.id);
@@ -233,6 +240,10 @@ void ErtScmComponent::publish_(const ScmPacket &p, float rssi) {
     this->publish_skipped_++;
     ESP_LOGW(TAG, "MQTT publish failed for id=%" PRIu32, p.id);
   }
+#else
+  (void) p;
+  (void) rssi;
+#endif
 }
 
 void ErtScmComponent::log_stats_() {

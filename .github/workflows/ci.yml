@@ -65,6 +65,8 @@ jobs:
           for name in ("ha-api.yaml", "mqtt-only.yaml"):
               path = Path("examples") / name
               text = path.read_text()
+              # Placeholder in examples is not an int; use a synthetic id for CI.
+              text = text.replace('house_meter_id: "YOUR_METER_ID"', 'house_meter_id: "12345678"')
               start = text.index("external_components:")
               # Replace from external_components through the refresh line (git block).
               end = text.index("\nert_scm:", start)

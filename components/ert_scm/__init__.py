@@ -1,6 +1,7 @@
-# ERT-SCM decode + MQTT publish. See README.md and docs/PLAN.md.
+# ERT-SCM decode + optional MQTT publish. See README.md and docs/PLAN.md.
 #
-# Publishes fixed meters/gas/{id}/… topics (no MQTT discovery).
+# When an MQTT client is configured, publishes fixed meters/gas/{id}/… topics
+# (no MQTT discovery). HA-native API sensors work without MQTT.
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
@@ -18,7 +19,8 @@ from esphome.const import (
 )
 
 CODEOWNERS = ["@shomanjk"]
-DEPENDENCIES = ["mqtt", "remote_receiver", "sx127x", "time"]
+# MQTT is optional: HA API-only examples omit it; publish_() no-ops then.
+DEPENDENCIES = ["remote_receiver", "sx127x", "time"]
 AUTO_LOAD = ["sensor"]
 
 ert_scm_ns = cg.esphome_ns.namespace("ert_scm")
