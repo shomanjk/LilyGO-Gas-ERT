@@ -1,0 +1,33 @@
+# ESPHome / secrets
+secrets.yaml
+.esphome/
+*.bin
+*.elf
+*.map
+
+# Cursor (local only — not for GitHub)
+.cursor/
+
+# Factory firmware dump of the LilyGO board (local only, never commit)
+firmware-backup/
+
+# Local agent review notes (shared via this folder, not GitHub)
+docs/REVIEW-*.md
+
+# Private planning notes (local only, never commit)
+docs/private/
+
+# Local editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Host unit test build output
+tests/build/
+
+# Python (if tooling added later)
+.venv/
+__pycache__/
+*.pyc

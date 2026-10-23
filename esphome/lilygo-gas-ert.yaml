@@ -1,0 +1,384 @@
+# LilyGO Gas ERT — radio scaffold / bring-up
+#
+# For a ready-to-flash config pick an example instead:
+#   examples/ha-api.yaml     — Home Assistant native API (recommended default)
+#   examples/mqtt-only.yaml  — MQTT retained topics only
+#
+# Radio: ESPHome sx127x OOK continuous RX → remote_receiver on DIO2
+# Docs: https://esphome.io/components/sx127x/
+# Plan:  ../docs/PLAN.md
+#
+# Board assumption: LilyGO T3 / LoRa32 V2.1_1.6.1 915 MHz (SX1276)
+# Confirm silkscreen before debugging "no pulses".
+#
+# Bring-up: uncomment `dump: raw` under remote_receiver for pulse dumps; turn
+# it off once ert_scm is decoding (long dumps stall the loop).
+
+substitutions:
+  device_name: lilygo-gas-ert
+  friendly_name: LilyGO Gas ERT
+  # SCM meters seen during development hop on a fixed 12.5 min cycle. The
+  # target meter has two channels near here: A ≈ 914.65 MHz and B ≈ 914.83 MHz
+  # (A → 3.5 min → B → 9.0 min → A). Park on B first: one hit every 12.5 min,
+  # at a predictable time. Then try 914.735MHz to cover A and B
+  # (914.61–914.86 MHz) for ~2× the hits, if the OOK passband is wide enough.
+  # Other sites: check your meter's channels (rtl_433 -M level `freq`).
+  ert_frequency: "914.825MHz"
+  # Start wide; narrow if noise overwhelms remote_receiver
+  ert_bandwidth: "250_0kHz"
+  # OOK floor: too high = silence; too low = noise. Calibrate on site.
+  ert_rx_floor: "-90"
+  # Used by the Phase 2 ert_scm and OLED examples below.
+  house_meter_id: "YOUR_METER_ID"
+  # HA entity for today's gas usage (e.g. a daily utility_meter helper), shown
+  # on the OLED; the device falls back to its own count when HA is unreachable.
+  ha_gas_today_entity: "sensor.YOUR_GAS_TODAY"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  comment: "Itron ERT-SCM RX via SX1276 OOK (not LoRa)"
+
+esp32:
+  # ESPHome's name for the T3 / LoRa32 V2.1_1.6.x ("TTGO LoRa32-OLED v2.1.6").
+  # The PlatformIO-only "ttgo-lora32-v21new" fails validation as an unknown board.
+  board: ttgo-lora32-v21
+  framework:
+    type: arduino
+  cpu_frequency: 240MHz
+
+logger:
+  level: DEBUG
+  # Phase 1: VERBOSE helps rx_floor calibration; drop to INFO once stable.
+  # level: VERBOSE
+
+api:
+  # Required for examples/ha-api.yaml. Default reboot_timeout (15min) reboots
+  # unless HA's ESPHome integration connects — use 0s or adopt with encryption.
+  reboot_timeout: 0s
+  # encryption:
+  #   key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    # password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none
+  ap:
+    ssid: "${device_name}-fallback"
+    password: !secret ap_password
+
+captive_portal:
+
+# MQTT is optional. Enable for examples/mqtt-only.yaml (or hybrid setups).
+# Default public path is HA native API without MQTT — see examples/ha-api.yaml.
+# mqtt:
+#   broker: !secret mqtt_broker
+#   username: !secret mqtt_username
+#   password: !secret mqtt_password
+#   client_id: lilygo-gas-ert
+#   discovery: false
+#   keepalive: 60s
+#   log_topic: null
+
+# Clock for meters/gas/{id}/last_seen: local time, %Y-%m-%dT%H:%M:%S, no offset
+# (matches rtl_433 -M time:iso). timezone defaults to the timezone of the
+# machine running `esphome`; set it explicitly if you build elsewhere.
+time:
+  - platform: sntp
+    id: sntp_time
+
+spi:
+  clk_pin: GPIO5
+  mosi_pin: GPIO27
+  miso_pin: GPIO19
+
+# https://esphome.io/components/sx127x/ — FSK/OOK Continuous Mode (receiver)
+sx127x:
+  id: radio
+  cs_pin: GPIO18
+  rst_pin: GPIO23
+  dio0_pin: GPIO26
+  frequency: ${ert_frequency}
+  modulation: OOK
+  packet_mode: false
+  rx_start: true
+  rx_floor: ${ert_rx_floor}
+  bandwidth: ${ert_bandwidth}
+  # Recommended in continuous mode; turn off if preamble-less noise hurts decode
+  bitsync: true
+  # ERT Manchester chip rate is ~32.768 kchip/s; bitrate may need iteration
+  bitrate: 32768
+
+# Demodulated OOK bitstream is on SX1276 DIO2 → GPIO32 on T3 v1.6.1
+remote_receiver:
+  id: ook_rx
+  pin: GPIO32
+  # Bring-up only (Phase 1, or before ert_scm decodes): prints every capture
+  # ert_scm doesn't claim. Printing a long capture blocks the main loop for
+  # 100–300 ms, which can drop the next one, so leave it off once SCM decodes.
+  # dump: raw
+  # SCM Manchester chip ≈ 30.5 µs (32768 chips/s). The default filter (50us)
+  # merges single-chip pulses into their neighbours — keep this well below 30us.
+  filter: 10us
+  # Longest steady level inside an SCM packet is 2 chips (~61 µs). End the
+  # capture shortly after the packet instead of gluing on trailing noise
+  # (default 10ms).
+  idle: 250us
+  # One SCM packet is ~49–96 RMT symbols; leave headroom for leading noise.
+  # ESP32 default is 192; RMT memory is allocated in 64-symbol blocks.
+  rmt_symbols: 384
+  receive_symbols: 384
+  # No filter_symbols: ert_scm drops captures too short to be an SCM frame
+  # itself, because it needs to see every capture to keep RSSI accurate (it
+  # refuses to build with filter_symbols set). Without ert_scm, you can add
+  # `filter_symbols: 40` to quiet `dump: raw` during bring-up.
+
+# --- Phase 2 (disabled until decoder stub is implemented) ---
+# Built in the HA ESPHome add-on, which can't see this repo's files, so pull
+# ert_scm from GitHub. username/password are only needed while the repo is
+# private: use a fine-grained token with read-only Contents access to this
+# repo. To test local changes outside HA, use
+# `type: local` + `path: ../components` instead.
+# external_components:
+#   - source:
+#       type: git
+#       url: https://github.com/shomanjk/LilyGO-Gas-ERT
+#       ref: main
+#       username: !secret github_username
+#       password: !secret github_token
+#     components: [ert_scm]
+#     # Pick up new commits within minutes while developing (default 1d).
+#     # Not 0s: the dashboard validates continuously and would hit GitHub
+#     # on every check.
+#     refresh: 5min
+#
+# ert_scm:
+#   id: gas_ert
+#   receiver_id: ook_rx
+#   sx127x_id: radio
+#   time_id: sntp_time
+#   scale: 100
+#   meters:
+#     - id: ${house_meter_id}
+#       name: House gas
+#       enabled: true
+#       # Rolling 24 h of hourly usage, saved to flash: the OLED's graph and its
+#       # "today" fallback.
+#       history: true
+#       # Optional local sensor (raw ÷ scale). internal: keeps it off MQTT/HA;
+#       # the meters/gas/... topics are unaffected.
+#       consumption:
+#         id: house_gas_consumption
+#         name: "House gas consumption"
+#         # Omit internal: (or false) for HA API mode; true for MQTT-only.
+#       rssi:
+#         name: "House gas RSSI"
+#   # MQTT mode only:
+#   mqtt_topic_prefix: meters/gas
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+  - platform: uptime
+    name: "Uptime"
+    update_interval: 60s
+
+text_sensor:
+  - platform: version
+    name: "ESPHome Version"
+
+# Onboard green LED (T3 v1.6.1), the only LED the ESP32 drives; the red and
+# blue ones are hardwired charge / power indicators. PWM gives HA brightness
+# and effects.
+output:
+  - platform: ledc
+    pin: GPIO25
+    id: onboard_led
+
+light:
+  - platform: monochromatic
+    name: "Onboard LED"
+    output: onboard_led
+    effects:
+      - pulse:
+      - strobe:
+      - flicker:
+
+button:
+  - platform: restart
+    name: "Restart"
+
+# --- Optional OLED (SSD1306 128x64, I2C on SDA 21 / SCL 22) ---
+# Needs ert_scm above with `id: gas_ert` and `history: true` on the meter, and
+# the house_meter_id / ha_gas_today_entity substitutions set.
+# Two pages, rotating every 10 s: "Today" (usage since local midnight: HA's
+# number, or the device's own count with a chip icon when HA is unreachable)
+# and a 24 h bar graph. The "Display page" select in HA pins either page or
+# goes back to Auto. Status icons (Wi-Fi, MQTT, meter quiet > 30 min) appear
+# only when something is wrong.
+# Fonts and icons are downloaded at compile time (the HA add-on has internet).
+# Burn-in: low contrast, the layout shifts a few pixels each minute, and the
+# "Display" switch puts the panel to sleep.
+# i2c:
+#   sda: GPIO21
+#   scl: GPIO22
+#   # The default 50 kHz takes ~220 ms to push a 128x64 frame, blocking the main
+#   # loop (and SCM decoding) every update. The SSD1306 is rated for 400 kHz;
+#   # drop to 200kHz if the screen shows garbage or I2C errors appear.
+#   frequency: 400kHz
+#
+# font:
+#   - file: "gfonts://Roboto Mono"
+#     id: font_small
+#     size: 10
+#     glyphsets: [GF_Latin_Kernel]
+#     glyphs: ["³"]
+#   - file: "gfonts://Roboto Mono@700"
+#     id: font_big
+#     size: 22
+#     glyphs: "0123456789.-"
+#
+# image:
+#   - file: mdi:chip  # "today" is the device's own count
+#     id: icon_local
+#     resize: 12x12
+#     type: BINARY
+#   - file: mdi:wifi-off
+#     id: icon_wifi_off
+#     resize: 12x12
+#     type: BINARY
+#   - file: mdi:lan-disconnect  # MQTT down
+#     id: icon_mqtt_off
+#     resize: 12x12
+#     type: BINARY
+#   - file: mdi:signal-off  # no frame from the meter in 30 min
+#     id: icon_meter_quiet
+#     resize: 12x12
+#     type: BINARY
+#
+# # Add to the `sensor:` list above (needs the native API connected to HA).
+# sensor:
+#   - platform: homeassistant
+#     id: ha_gas_today
+#     entity_id: ${ha_gas_today_entity}
+#     internal: true
+#
+# switch:
+#   - platform: template
+#     id: display_on
+#     name: "Display"
+#     optimistic: true
+#     restore_mode: RESTORE_DEFAULT_ON
+#     # Off puts the panel to sleep (charge pump off), not just a blank screen.
+#     turn_on_action:
+#       - lambda: id(oled).turn_on();
+#     turn_off_action:
+#       - lambda: id(oled).turn_off();
+#
+# select:
+#   - platform: template
+#     id: display_page
+#     name: "Display page"
+#     options: ["Auto", "Today", "24h graph"]
+#     initial_option: "Auto"
+#     optimistic: true
+#     restore_value: true
+#     on_value:
+#       - lambda: |-
+#           if (i == 1)
+#             id(oled).show_page(id(page_today));
+#           else if (i == 2)
+#             id(oled).show_page(id(page_graph));
+#       - component.update: oled
+#
+# interval:
+#   - interval: 10s
+#     then:
+#       - if:
+#           condition:
+#             lambda: "return id(display_page).active_index().value_or(0) == 0;"
+#           then:
+#             - display.page.show_next: oled
+#             - component.update: oled
+#
+# display:
+#   - platform: ssd1306_i2c
+#     id: oled
+#     model: "SSD1306 128x64"
+#     address: 0x3C
+#     contrast: 50%
+#     update_interval: 5s
+#     pages:
+#       - id: page_today
+#         lambda: |-
+#           // The buffer is cleared before each update, so returning leaves it dark.
+#           if (!id(display_on).state)
+#             return;
+#           const int dx = (millis() / 60000) % 4;
+#           // HA's number when connected; otherwise the device's own count.
+#           float today = id(ha_gas_today).state;
+#           const bool local = !api::global_api_server->is_connected() || std::isnan(today);
+#           if (local)
+#             today = id(gas_ert).today_usage(${house_meter_id});
+#           it.print(dx, 0, id(font_small), "Today");
+#           if (local)
+#             it.image(dx + 34, 0, id(icon_local));
+#           it.print(124 + dx - 3, 0, id(font_small), TextAlign::TOP_RIGHT, "CCF");
+#           if (std::isnan(today))
+#             it.print(dx, 12, id(font_big), "--.--");
+#           else
+#             it.printf(dx, 12, id(font_big), "%.2f", today);
+#           const int32_t age = id(gas_ert).seconds_since_seen(${house_meter_id});
+#           if (age < 0)
+#             it.print(dx, 39, id(font_small), "waiting for meter");
+#           else if (age < 3600)
+#             it.printf(dx, 39, id(font_small), "seen %dm ago", (int) (age / 60));
+#           else
+#             it.printf(dx, 39, id(font_small), "seen %dh ago", (int) (age / 3600));
+#           // Status icons only when something is wrong.
+#           int x = dx;
+#           if (!wifi::global_wifi_component->is_connected()) {
+#             it.image(x, 52, id(icon_wifi_off));
+#             x += 16;
+#           }
+#           if (mqtt::global_mqtt_client == nullptr || !mqtt::global_mqtt_client->is_connected()) {
+#             it.image(x, 52, id(icon_mqtt_off));
+#             x += 16;
+#           }
+#           if (age > 30 * 60 || (age < 0 && millis() > 30 * 60 * 1000))
+#             it.image(x, 52, id(icon_meter_quiet));
+#       - id: page_graph
+#         lambda: |-
+#           if (!id(display_on).state)
+#             return;
+#           const int dx = (millis() / 60000) % 4;
+#           it.print(dx, 0, id(font_small), "24h");
+#           float hours[24];
+#           if (!id(gas_ert).usage_last_24h(${house_meter_id}, hours)) {
+#             it.print(64, 38, id(font_small), TextAlign::CENTER, "no history yet");
+#             return;
+#           }
+#           float peak = 0;
+#           for (float h : hours)
+#             peak = std::max(peak, h);
+#           it.printf(124 + dx - 3, 0, id(font_small), TextAlign::TOP_RIGHT, "max %.2f CCF/h", peak);
+#           // 24 hourly bars, 4 px wide with 1 px gaps, newest on the right.
+#           const int top = 14, bottom = 62;
+#           it.horizontal_line(dx + 4, 63, 120);
+#           for (int i = 0; i < 24; i++) {
+#             if (hours[i] <= 0 || peak <= 0)
+#               continue;
+#             int h = (int) lroundf(hours[i] / peak * (bottom - top + 1));
+#             if (h < 1)
+#               h = 1;
+#             it.filled_rectangle(dx + 4 + i * 5, bottom + 1 - h, 4, h);
+#           }

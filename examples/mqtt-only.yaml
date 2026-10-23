@@ -1,0 +1,136 @@
+# LilyGO Gas ERT — MQTT only (no Home Assistant / no native API required)
+#
+# Publishes retained topics under meters/gas/{id}/… for any MQTT consumer.
+# Local consumption/rssi sensors are internal so they are not also pushed via
+# ESPHome's MQTT discovery.
+#
+# Hardware: LilyGO T3 / LoRa32 V2.1_1.6.1 915 MHz (SX1276). Confirm DIO2 → GPIO32.
+#
+# 1. Copy into ESPHome (add-on, CLI, or Docker).
+# 2. Set meter id, frequency, and MQTT secrets.
+# 3. Install. Confirm topics with any MQTT client.
+# 4. Verify scale/units against your dial or bill (see README *Units*).
+
+substitutions:
+  device_name: lilygo-gas-ert
+  friendly_name: LilyGO Gas ERT
+  ert_frequency: "914.825MHz"
+  ert_bandwidth: "250_0kHz"
+  ert_rx_floor: "-90"
+  house_meter_id: "YOUR_METER_ID"
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  comment: "Itron ERT-SCM RX via SX1276 OOK (not LoRa)"
+
+esp32:
+  board: ttgo-lora32-v21
+  framework:
+    type: arduino
+  cpu_frequency: 240MHz
+
+logger:
+  level: INFO
+
+# Optional: enable for OTA / logs from HA or the ESPHome dashboard.
+# api:
+#   reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none
+  ap:
+    ssid: "${device_name}-fallback"
+    password: !secret ap_password
+
+captive_portal:
+
+mqtt:
+  broker: !secret mqtt_broker
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  client_id: lilygo-gas-ert
+  discovery: false
+  keepalive: 60s
+  log_topic: null
+
+time:
+  - platform: sntp
+    id: sntp_time
+
+spi:
+  clk_pin: GPIO5
+  mosi_pin: GPIO27
+  miso_pin: GPIO19
+
+sx127x:
+  id: radio
+  cs_pin: GPIO18
+  rst_pin: GPIO23
+  dio0_pin: GPIO26
+  frequency: ${ert_frequency}
+  modulation: OOK
+  packet_mode: false
+  rx_start: true
+  rx_floor: ${ert_rx_floor}
+  bandwidth: ${ert_bandwidth}
+  bitsync: true
+  bitrate: 32768
+
+remote_receiver:
+  id: ook_rx
+  pin: GPIO32
+  filter: 10us
+  idle: 250us
+  rmt_symbols: 384
+  receive_symbols: 384
+
+# While the repo is private, uncomment username/password (read-only token).
+external_components:
+  - source:
+      type: git
+      url: https://github.com/shomanjk/LilyGO-Gas-ERT
+      ref: v1.0.0
+      # username: !secret github_username
+      # password: !secret github_token
+    components: [ert_scm]
+    refresh: 1d
+
+ert_scm:
+  id: gas_ert
+  receiver_id: ook_rx
+  sx127x_id: radio
+  time_id: sntp_time
+  scale: 100
+  mqtt_topic_prefix: meters/gas
+  meters:
+    - id: ${house_meter_id}
+      name: House gas
+      enabled: true
+      consumption:
+        name: "House gas consumption"
+        internal: true
+      rssi:
+        name: "House gas RSSI"
+        internal: true
+
+binary_sensor:
+  - platform: status
+    name: "Status"
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+  - platform: uptime
+    name: "Uptime"
+    update_interval: 60s
+
+button:
+  - platform: restart
+    name: "Restart"
