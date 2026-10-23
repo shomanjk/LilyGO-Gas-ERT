@@ -1,5 +1,7 @@
 # LilyGO Gas ERT
 
+[![CI](https://github.com/shomanjk/LilyGO-Gas-ERT/actions/workflows/ci.yml/badge.svg)](https://github.com/shomanjk/LilyGO-Gas-ERT/actions/workflows/ci.yml)
+
 ESPHome firmware for a **LilyGO LoRa32 915 MHz (SX1276)** that receives **Itron ERT-SCM** utility-meter broadcasts (ASK/OOK — **not LoRa**) and reports consumption to **Home Assistant** (native API) or any **MQTT** broker.
 
 Use it to read **your own** meter. Receiving utility AMI broadcasts may be regulated where you live. This project is not affiliated with Itron or any utility.

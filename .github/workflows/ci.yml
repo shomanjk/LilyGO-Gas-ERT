@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    name: Host unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run tests
+        run: make -C tests
+
+  esphome-config:
+    name: ESPHome config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dummy secrets for validation
+        run: |
+          python3 <<'PY'
+          import base64
+          from pathlib import Path
+
+          # ESPHome resolves !secret relative to the YAML being validated
+          # (examples/*.yaml → examples/secrets.yaml).
+          key = base64.b64encode(bytes(range(32))).decode()
+          body = "\n".join(
+              [
+                  'wifi_ssid: "ci-ssid"',
+                  'wifi_password: "ci-wifi-password"',
+                  'ap_password: "ci-ap-password"',
+                  f'api_encryption_key: "{key}"',
+                  'mqtt_broker: "mqtt.example.local"',
+                  'mqtt_username: "ci-mqtt-user"',
+                  'mqtt_password: "ci-mqtt-password"',
+                  "",
+              ]
+          )
+          Path("examples").mkdir(exist_ok=True)
+          Path("examples/secrets.yaml").write_text(body)
+          Path("secrets.yaml").write_text(body)
+          PY
+
+      - name: Point examples at local ert_scm
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          local_block = """external_components:
+            - source:
+                type: local
+                path: ../components
+              components: [ert_scm]
+          """
+
+          for name in ("ha-api.yaml", "mqtt-only.yaml"):
+              path = Path("examples") / name
+              text = path.read_text()
+              start = text.index("external_components:")
+              # Replace from external_components through the refresh line (git block).
+              end = text.index("\nert_scm:", start)
+              path.write_text(text[:start] + local_block + text[end:])
+              print(f"patched {path}")
+          PY
+
+      - name: Validate HA API example
+        run: |
+          docker run --rm -v "$PWD":/config ghcr.io/esphome/esphome:2026.9.1 \
+            config /config/examples/ha-api.yaml
+
+      - name: Validate MQTT-only example
+        run: |
+          docker run --rm -v "$PWD":/config ghcr.io/esphome/esphome:2026.9.1 \
+            config /config/examples/mqtt-only.yaml
