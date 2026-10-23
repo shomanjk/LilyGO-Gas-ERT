@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- GitHub Actions CI: host unit tests + `esphome config` on both examples (local `ert_scm`)
+
 ## [1.0.0] — 2026-10-22
 
 First tagged release of the LilyGO SX1276 ERT-SCM collector.
