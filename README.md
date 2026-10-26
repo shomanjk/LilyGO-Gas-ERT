@@ -92,7 +92,7 @@ USB-serial on this board (CH9102) flashes most reliably at **115200** baud.
 1. **Hardware:** board above; **DIO2 must be GPIO32**.
 2. **Secrets:** copy key names from [`secrets.example.yaml`](secrets.example.yaml) into the ESPHome add-on’s `secrets.yaml` (Wi‑Fi + `api_encryption_key` for the HA example). Never commit real `secrets.yaml`.
 3. **Config:** create a device in the HA ESPHome add-on and paste [`examples/ha-api.yaml`](examples/ha-api.yaml). Set `house_meter_id` and, if needed, `ert_frequency`. Keep examples generic — placeholders only (`YOUR_METER_ID`, example frequencies); no real meter IDs or LAN hosts in shared YAML.
-4. **Component:** the YAML pulls `ert_scm` via `external_components` `type: git` with `ref: v1.1.1` (see [CHANGELOG](CHANGELOG.md)). The HA add-on cannot see a local checkout path; use `type: local` only when developing the component outside HA.
+4. **Component:** the YAML pulls `ert_scm` via `external_components` `type: git` with `ref: v1.1.2` (see [CHANGELOG](CHANGELOG.md)). The HA add-on cannot see a local checkout path; use `type: local` only when developing the component outside HA.
 5. **Install**, adopt the device in HA, and confirm the consumption entity updates (ERT hops are sparse — often several minutes between hits).
 
 MQTT-only users: start from [`examples/mqtt-only.yaml`](examples/mqtt-only.yaml) instead and subscribe to the topics below.

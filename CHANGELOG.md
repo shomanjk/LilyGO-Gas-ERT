@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## [1.1.2] — 2026-10-25
+
+Today OLED graph width.
+
+- Today OLED sparkline starts at x=58 again and only narrows to x=70 when the total needs five characters (`10.00`+ after rounding, or `--.--`)
+- Fix a stale comment: the big number sits at y=16
+
+Pin ESPHome configs with `ref: v1.1.2`.
+
 ## [1.1.1] — 2026-10-25
 
 Patch for ESPHome 2026.10 and OLED footer clipping.

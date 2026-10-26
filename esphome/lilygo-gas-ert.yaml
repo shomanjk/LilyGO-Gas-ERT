@@ -262,7 +262,7 @@ button:
 #     id: icon_local
 #     resize: 12x12
 #     type: BINARY
-#   # Title-row fault icons; 16px OK because the big number sits at y=18.
+#   # Title-row fault icons; 16px OK because the big number sits at y=16.
 #   - platform: file
 #     file: mdi:wifi-off
 #     id: icon_wifi_off
@@ -387,9 +387,9 @@ button:
 #               total += hours[i];
 #               cum[i] = total;
 #             }
-#             // Starts at x=70 so "%.2f" totals up to 99.99 (~66px at size 22) clear the graph.
-#             // 56×32 px ≈ 26 min/px; top still clears title-row icons.
-#             const int left = dx + 70, right = dx + 126, top = 16, bottom = 48;
+#             // x=58 clears "9.99"; five-wide text ("10.00", "--.--") needs x=70.
+#             // 9.995 matches "%.2f" rounding, so 9.997 (shown as "10.00") also shifts.
+#             const int left = dx + ((std::isnan(today) || today >= 9.995f) ? 70 : 58), right = dx + 126, top = 16, bottom = 48;
 #             it.horizontal_line(left, bottom, right - left + 1);
 #             if (total > 0) {
 #               int x0 = left, y0 = bottom;
