@@ -2,7 +2,16 @@
 
 ## Unreleased
 
+## [1.1.0] — 2026-10-23
+
+OLED polish and ESP-IDF as the recommended framework.
+
+- Default ESP32 framework: **esp-idf** with `sram1_as_iram: true` (examples + scaffold)
+- Optional OLED Today / 24h pages: cumulative sparkline, full-width `seen Xm ago` / `WAITING`, title-row fault icons; README mocks
+- Silence GPIO5 strapping warning; `image:` `platform: file` for MDI icons
 - GitHub Actions CI: host unit tests + `esphome config` on both examples (local `ert_scm`)
+
+Pin ESPHome configs with `ref: v1.1.0`.
 
 ## [1.0.0] — 2026-10-22
 

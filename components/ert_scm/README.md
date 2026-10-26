@@ -70,7 +70,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/shomanjk/LilyGO-Gas-ERT
-      ref: v1.0.0
+      ref: v1.1.0
       username: !secret github_username
       password: !secret github_token
     components: [ert_scm]

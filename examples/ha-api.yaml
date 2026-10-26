@@ -29,7 +29,9 @@ esphome:
 esp32:
   board: ttgo-lora32-v21
   framework:
-    type: arduino
+    type: esp-idf
+    advanced:
+      sram1_as_iram: true
   cpu_frequency: 240MHz
 
 logger:
@@ -58,7 +60,10 @@ time:
     id: sntp_time
 
 spi:
-  clk_pin: GPIO5
+  # LilyGO T3 hardwires SX1276 SCK to GPIO5 (ESP32 strapping pin).
+  clk_pin:
+    number: GPIO5
+    ignore_strapping_warning: true
   mosi_pin: GPIO27
   miso_pin: GPIO19
 
@@ -89,7 +94,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/shomanjk/LilyGO-Gas-ERT
-      ref: v1.0.0
+      ref: v1.1.0
       # username: !secret github_username
       # password: !secret github_token
     components: [ert_scm]
