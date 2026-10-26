@@ -116,7 +116,13 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
     receiver = await cg.get_variable(config[remote_base.CONF_RECEIVER_ID])
-    cg.add(receiver.register_dumper(var))
+    # ESPHome 2026.10+ sizes dumper slots at codegen; hand-written
+    # receiver.register_dumper() emits the call but counts no slot (static_assert).
+    add_dumper = getattr(remote_base, "add_dumper", None)
+    if add_dumper is not None:
+        add_dumper(receiver, var)
+    else:
+        cg.add(receiver.register_dumper(var))
     radio = await cg.get_variable(config[CONF_SX127X_ID])
     cg.add(var.set_radio(radio))
     clock = await cg.get_variable(config[CONF_TIME_ID])
