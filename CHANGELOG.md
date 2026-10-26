@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## [1.1.1] — 2026-10-25
+
+Patch for ESPHome 2026.10 and OLED footer clipping.
+
+- Fix ESPHome 2026.10 build: register `ert_scm` via `remote_base.add_dumper` so codegen reserves a slot (still falls back on older ESPHome)
+- Nudge Today OLED age/number/CCF up 2px and shorten the sparkline so `ago` descenders are not clipped
+
+Pin ESPHome configs with `ref: v1.1.1`.
+
 ## [1.1.0] — 2026-10-23
 
 OLED polish and ESP-IDF as the recommended framework.

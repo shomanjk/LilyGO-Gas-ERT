@@ -366,19 +366,19 @@ button:
 #           }
 #           if (age > 30 * 60 || (age < 0 && millis() > 30 * 60 * 1000))
 #             it.image(ix, iy, id(icon_meter_quiet));
-#           // y=18 clears 16px title-row icons.
+#           // y=16 clears 16px title-row icons; age at y=50 leaves room for descenders.
 #           if (std::isnan(today))
-#             it.print(dx, 18, id(font_big), "--.--");
+#             it.print(dx, 16, id(font_big), "--.--");
 #           else
-#             it.printf(dx, 18, id(font_big), "%.2f", today);
-#           it.print(dx, 42, id(font_small), "CCF");
+#             it.printf(dx, 16, id(font_big), "%.2f", today);
+#           it.print(dx, 40, id(font_small), "CCF");
 #           if (age < 0)
-#             it.print(dx, 52, id(font_seen), "WAITING");
+#             it.print(dx, 50, id(font_seen), "WAITING");
 #           else if (age < 3600)
-#             it.printf(dx, 52, id(font_seen), "seen %dm ago", (int) (age / 60));
+#             it.printf(dx, 50, id(font_seen), "seen %dm ago", (int) (age / 60));
 #           else
-#             it.printf(dx, 52, id(font_seen), "seen %dh ago", (int) (age / 3600));
-#           // Wider/taller cumulative sparkline (clears big number; sits above age footer).
+#             it.printf(dx, 50, id(font_seen), "seen %dh ago", (int) (age / 3600));
+#           // Cumulative sparkline above the age footer (bottom=48 clears y=50 text).
 #           float hours[24];
 #           if (id(gas_ert).usage_last_24h(${house_meter_id}, hours)) {
 #             float cum[24];
@@ -388,8 +388,8 @@ button:
 #               cum[i] = total;
 #             }
 #             // Starts at x=70 so "%.2f" totals up to 99.99 (~66px at size 22) clear the graph.
-#             // 56×34 px ≈ 26 min/px; top still clears title-row icons.
-#             const int left = dx + 70, right = dx + 126, top = 16, bottom = 50;
+#             // 56×32 px ≈ 26 min/px; top still clears title-row icons.
+#             const int left = dx + 70, right = dx + 126, top = 16, bottom = 48;
 #             it.horizontal_line(left, bottom, right - left + 1);
 #             if (total > 0) {
 #               int x0 = left, y0 = bottom;
