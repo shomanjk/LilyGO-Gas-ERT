@@ -387,8 +387,9 @@ button:
 #               total += hours[i];
 #               cum[i] = total;
 #             }
-#             // 68×34 px ≈ 21 min/px (was 54×30 ≈ 27 min/px).
-#             const int left = dx + 58, right = dx + 126, top = 16, bottom = 50;
+#             // Starts at x=70 so "%.2f" totals up to 99.99 (~66px at size 22) clear the graph.
+#             // 56×34 px ≈ 26 min/px; top still clears title-row icons.
+#             const int left = dx + 70, right = dx + 126, top = 16, bottom = 50;
 #             it.horizontal_line(left, bottom, right - left + 1);
 #             if (total > 0) {
 #               int x0 = left, y0 = bottom;
