@@ -61,7 +61,6 @@ Not covered yet: **real captures**. Once Phase 1 records an SCM frame on the boa
 `receiver_id`, `sx127x_id` and `time_id` can be omitted when there is only one of each.
 
 The device is built in the Home Assistant ESPHome add-on, which can't see this repo's files. So the component comes from GitHub:
-- **Private repo:** `username` and `password` (a fine-grained token with read-only Contents access) are required. Drop them once the repo is public.
 - **`refresh: 5min`** picks up new commits within minutes. The default caches for one day. Avoid `0s`: the dashboard validates configs continuously, so every check would contact GitHub. ESPHome recommends at least a few minutes.
 - **Local changes:** to test them before pushing, swap in `type: local` / `path: ../components` and build outside HA.
 
@@ -71,8 +70,6 @@ external_components:
       type: git
       url: https://github.com/shomanjk/LilyGO-Gas-ERT
       ref: v1.1.0
-      username: !secret github_username
-      password: !secret github_token
     components: [ert_scm]
     refresh: 1d
 

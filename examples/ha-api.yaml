@@ -89,14 +89,11 @@ remote_receiver:
   rmt_symbols: 384
   receive_symbols: 384
 
-# While the repo is private, uncomment username/password (read-only token).
 external_components:
   - source:
       type: git
       url: https://github.com/shomanjk/LilyGO-Gas-ERT
       ref: v1.1.0
-      # username: !secret github_username
-      # password: !secret github_token
     components: [ert_scm]
     refresh: 1d
 

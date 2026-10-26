@@ -146,17 +146,13 @@ remote_receiver:
 
 # --- Phase 2 (disabled until decoder stub is implemented) ---
 # Built in the HA ESPHome add-on, which can't see this repo's files, so pull
-# ert_scm from GitHub. username/password are only needed while the repo is
-# private: use a fine-grained token with read-only Contents access to this
-# repo. To test local changes outside HA, use
+# ert_scm from GitHub. To test local changes outside HA, use
 # `type: local` + `path: ../components` instead.
 # external_components:
 #   - source:
 #       type: git
 #       url: https://github.com/shomanjk/LilyGO-Gas-ERT
 #       ref: main
-#       username: !secret github_username
-#       password: !secret github_token
 #     components: [ert_scm]
 #     # Pick up new commits within minutes while developing (default 1d).
 #     # Not 0s: the dashboard validates continuously and would hit GitHub
