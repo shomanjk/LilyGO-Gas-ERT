@@ -44,7 +44,11 @@ esp32:
   # The PlatformIO-only "ttgo-lora32-v21new" fails validation as an unknown board.
   board: ttgo-lora32-v21
   framework:
-    type: arduino
+    # ESPHome default direction; validated on hardware 2026-10-23.
+    type: esp-idf
+    advanced:
+      # Free +40KB IRAM when bootloader logs "supports SRAM1 as IRAM".
+      sram1_as_iram: true
   cpu_frequency: 240MHz
 
 logger:
@@ -92,7 +96,10 @@ time:
     id: sntp_time
 
 spi:
-  clk_pin: GPIO5
+  # LilyGO T3 hardwires SX1276 SCK to GPIO5 (ESP32 strapping pin).
+  clk_pin:
+    number: GPIO5
+    ignore_strapping_warning: true
   mosi_pin: GPIO27
   miso_pin: GPIO19
 
@@ -139,17 +146,13 @@ remote_receiver:
 
 # --- Phase 2 (disabled until decoder stub is implemented) ---
 # Built in the HA ESPHome add-on, which can't see this repo's files, so pull
-# ert_scm from GitHub. username/password are only needed while the repo is
-# private: use a fine-grained token with read-only Contents access to this
-# repo. To test local changes outside HA, use
+# ert_scm from GitHub. To test local changes outside HA, use
 # `type: local` + `path: ../components` instead.
 # external_components:
 #   - source:
 #       type: git
 #       url: https://github.com/shomanjk/LilyGO-Gas-ERT
 #       ref: main
-#       username: !secret github_username
-#       password: !secret github_token
 #     components: [ert_scm]
 #     # Pick up new commits within minutes while developing (default 1d).
 #     # Not 0s: the dashboard validates continuously and would hit GitHub
@@ -242,27 +245,38 @@ button:
 #     size: 10
 #     glyphsets: [GF_Latin_Kernel]
 #     glyphs: ["³"]
+#   # Full-width age footer (no divider) — size 12 fits "seen 999m ago".
+#   # Uppercase included so the idle state can render as crisp "WAITING".
+#   - file: "gfonts://Roboto Mono"
+#     id: font_seen
+#     size: 12
+#     glyphs: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz "
 #   - file: "gfonts://Roboto Mono@700"
 #     id: font_big
 #     size: 22
 #     glyphs: "0123456789.-"
 #
 # image:
-#   - file: mdi:chip  # "today" is the device's own count
+#   - platform: file
+#     file: mdi:chip  # "today" is the device's own count
 #     id: icon_local
 #     resize: 12x12
 #     type: BINARY
-#   - file: mdi:wifi-off
+#   # Title-row fault icons; 16px OK because the big number sits at y=18.
+#   - platform: file
+#     file: mdi:wifi-off
 #     id: icon_wifi_off
-#     resize: 12x12
+#     resize: 16x16
 #     type: BINARY
-#   - file: mdi:lan-disconnect  # MQTT down
+#   - platform: file
+#     file: mdi:lan-disconnect  # MQTT down
 #     id: icon_mqtt_off
-#     resize: 12x12
+#     resize: 16x16
 #     type: BINARY
-#   - file: mdi:signal-off  # no frame from the meter in 30 min
+#   - platform: file
+#     file: mdi:signal-off  # no frame from the meter in 30 min
 #     id: icon_meter_quiet
-#     resize: 12x12
+#     resize: 16x16
 #     type: BINARY
 #
 # # Add to the `sensor:` list above (needs the native API connected to HA).
@@ -329,33 +343,68 @@ button:
 #           const bool local = !api::global_api_server->is_connected() || std::isnan(today);
 #           if (local)
 #             today = id(gas_ert).today_usage(${house_meter_id});
+#           // Left: today total. Right: 24h cumulative sparkline. No divider —
+#           // age line is a full-width footer so "seen 999m ago" fits at size 12.
 #           it.print(dx, 0, id(font_small), "Today");
-#           if (local)
-#             it.image(dx + 34, 0, id(icon_local));
-#           it.print(124 + dx - 3, 0, id(font_small), TextAlign::TOP_RIGHT, "CCF");
-#           if (std::isnan(today))
-#             it.print(dx, 12, id(font_big), "--.--");
-#           else
-#             it.printf(dx, 12, id(font_big), "%.2f", today);
+#           // "24h" top-right so the band after "Today" is free for status icons.
+#           it.print(dx + 126, 0, id(font_small), TextAlign::TOP_RIGHT, "24h");
+#           // Title-row icons (local chip + faults) in the open space above the graph.
+#           int ix = dx + 34;
+#           const int iy = 0;
+#           if (local) {
+#             it.image(ix, iy, id(icon_local));
+#             ix += 14;
+#           }
 #           const int32_t age = id(gas_ert).seconds_since_seen(${house_meter_id});
-#           if (age < 0)
-#             it.print(dx, 39, id(font_small), "waiting for meter");
-#           else if (age < 3600)
-#             it.printf(dx, 39, id(font_small), "seen %dm ago", (int) (age / 60));
-#           else
-#             it.printf(dx, 39, id(font_small), "seen %dh ago", (int) (age / 3600));
-#           // Status icons only when something is wrong.
-#           int x = dx;
 #           if (!wifi::global_wifi_component->is_connected()) {
-#             it.image(x, 52, id(icon_wifi_off));
-#             x += 16;
+#             it.image(ix, iy, id(icon_wifi_off));
+#             ix += 18;
 #           }
 #           if (mqtt::global_mqtt_client == nullptr || !mqtt::global_mqtt_client->is_connected()) {
-#             it.image(x, 52, id(icon_mqtt_off));
-#             x += 16;
+#             it.image(ix, iy, id(icon_mqtt_off));
+#             ix += 18;
 #           }
 #           if (age > 30 * 60 || (age < 0 && millis() > 30 * 60 * 1000))
-#             it.image(x, 52, id(icon_meter_quiet));
+#             it.image(ix, iy, id(icon_meter_quiet));
+#           // y=18 clears 16px title-row icons.
+#           if (std::isnan(today))
+#             it.print(dx, 18, id(font_big), "--.--");
+#           else
+#             it.printf(dx, 18, id(font_big), "%.2f", today);
+#           it.print(dx, 42, id(font_small), "CCF");
+#           if (age < 0)
+#             it.print(dx, 52, id(font_seen), "WAITING");
+#           else if (age < 3600)
+#             it.printf(dx, 52, id(font_seen), "seen %dm ago", (int) (age / 60));
+#           else
+#             it.printf(dx, 52, id(font_seen), "seen %dh ago", (int) (age / 3600));
+#           // Wider/taller cumulative sparkline (clears big number; sits above age footer).
+#           float hours[24];
+#           if (id(gas_ert).usage_last_24h(${house_meter_id}, hours)) {
+#             float cum[24];
+#             float total = 0;
+#             for (int i = 0; i < 24; i++) {
+#               total += hours[i];
+#               cum[i] = total;
+#             }
+#             // Starts at x=70 so "%.2f" totals up to 99.99 (~66px at size 22) clear the graph.
+#             // 56×34 px ≈ 26 min/px; top still clears title-row icons.
+#             const int left = dx + 70, right = dx + 126, top = 16, bottom = 50;
+#             it.horizontal_line(left, bottom, right - left + 1);
+#             if (total > 0) {
+#               int x0 = left, y0 = bottom;
+#               for (int i = 0; i < 24; i++) {
+#                 int x1 = left + (i * (right - left)) / 23;
+#                 int y1 = bottom - (int) lroundf(cum[i] / total * (bottom - top));
+#                 if (y1 < top)
+#                   y1 = top;
+#                 if (i > 0)
+#                   it.line(x0, y0, x1, y1);
+#                 x0 = x1;
+#                 y0 = y1;
+#               }
+#             }
+#           }
 #       - id: page_graph
 #         lambda: |-
 #           if (!id(display_on).state)
@@ -371,14 +420,25 @@ button:
 #           for (float h : hours)
 #             peak = std::max(peak, h);
 #           it.printf(124 + dx - 3, 0, id(font_small), TextAlign::TOP_RIGHT, "max %.2f CCF/h", peak);
-#           // 24 hourly bars, 4 px wide with 1 px gaps, newest on the right.
-#           const int top = 14, bottom = 62;
-#           it.horizontal_line(dx + 4, 63, 120);
-#           for (int i = 0; i < 24; i++) {
-#             if (hours[i] <= 0 || peak <= 0)
-#               continue;
-#             int h = (int) lroundf(hours[i] / peak * (bottom - top + 1));
-#             if (h < 1)
-#               h = 1;
-#             it.filled_rectangle(dx + 4 + i * 5, bottom + 1 - h, 4, h);
+#           // Hourly sparkline (replaces bars).
+#           const int left = dx + 4, right = dx + 123, top = 14, bottom = 62;
+#           it.horizontal_line(left, bottom, right - left + 1);
+#           if (peak > 0) {
+#             int x0 = left;
+#             int y0 = bottom - (int) lroundf(hours[0] / peak * (bottom - top));
+#             if (y0 < top)
+#               y0 = top;
+#             for (int i = 1; i < 24; i++) {
+#               int x1 = left + (i * (right - left)) / 23;
+#               int y1 = bottom - (int) lroundf(hours[i] / peak * (bottom - top));
+#               if (y1 < top)
+#                 y1 = top;
+#               it.line(x0, y0, x1, y1);
+#               if (hours[i] > 0) {
+#                 it.draw_pixel_at(x1, y1);
+#                 it.draw_pixel_at(x1 + 1, y1);
+#               }
+#               x0 = x1;
+#               y0 = y1;
+#             }
 #           }

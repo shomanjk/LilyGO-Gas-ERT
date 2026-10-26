@@ -14,9 +14,21 @@ Developed and run against **Itron ERT-SCM** gas meters in the **Austin, Texas** 
 
 Search keywords: Austin TX gas meter, Texas Gas Service ERT, Itron SCM ESPHome, LilyGO LoRa32 915 SX1276 OOK, Home Assistant gas ERT.
 
+### Onboard OLED
+
+Optional SSD1306 pages on the LilyGO (enable the display block in the device YAML). Mocks of the two rotating views:
+
+<p>
+  <img src="docs/images/oled-today-with-cum-mock.png" alt="Today page: usage total, seen age, and 24h cumulative sparkline" width="420" />
+  <img src="docs/images/oled-24h-sparkline-mock.png" alt="24h page: hourly usage sparkline with peak CCF/h" width="420" />
+</p>
+
+| Today | 24h graph |
+|-------|-----------|
+| Today’s total (CCF), last-heard age, cumulative 24 h sparkline | Hourly usage sparkline with peak CCF/h |
+
 <!-- Photos: add files under docs/images/ (see docs/images/README.md), then uncomment:
 ![LilyGO LoRa32 915 MHz board](docs/images/board.jpg)
-![Onboard OLED](docs/images/oled.jpg)
 ![Home Assistant gas reading](docs/images/ha-dashboard.png)
 -->
 
@@ -28,7 +40,7 @@ Search keywords: Austin TX gas meter, Texas Gas Service ERT, Itron SCM ESPHome, 
 | `ert_scm` decode + allowlist + scale | Working |
 | Home Assistant via native API | Supported (default example) |
 | MQTT retained topics | Supported |
-| Onboard OLED / usage history | Optional (see device YAML comments) |
+| Onboard OLED / usage history | Optional ([mocks above](#onboard-oled); see device YAML) |
 
 ## Two integration modes
 
@@ -58,7 +70,7 @@ This is **not** LoRa mode. Do not configure the SX1276 as a LoRa modem for ERT-S
 
 Tested on **LilyGO T3 / LoRa32 V2.1_1.6.1 915 MHz**. Confirm your silkscreen / variant before chasing “no pulses” — older TTGO revisions sometimes need DIO1/DIO2 jumpers.
 
-Photos go in [`docs/images/`](docs/images/) (board, OLED, HA dashboard). Add the files, then uncomment the image block near the top of this README.
+Photos go in [`docs/images/`](docs/images/) (board, HA dashboard). OLED page mocks are already linked [above](#onboard-oled).
 
 | Function | GPIO |
 |----------|------|
@@ -80,7 +92,7 @@ USB-serial on this board (CH9102) flashes most reliably at **115200** baud.
 1. **Hardware:** board above; **DIO2 must be GPIO32**.
 2. **Secrets:** copy key names from [`secrets.example.yaml`](secrets.example.yaml) into the ESPHome add-on’s `secrets.yaml` (Wi‑Fi + `api_encryption_key` for the HA example). Never commit real `secrets.yaml`.
 3. **Config:** create a device in the HA ESPHome add-on and paste [`examples/ha-api.yaml`](examples/ha-api.yaml). Set `house_meter_id` and, if needed, `ert_frequency`. Keep examples generic — placeholders only (`YOUR_METER_ID`, example frequencies); no real meter IDs or LAN hosts in shared YAML.
-4. **Component:** the YAML pulls `ert_scm` via `external_components` `type: git` with `ref: v1.0.0` (see [CHANGELOG](CHANGELOG.md)). While the repo is private, use a read-only GitHub token in secrets. The HA add-on cannot see a local checkout path; use `type: local` only when developing the component outside HA.
+4. **Component:** the YAML pulls `ert_scm` via `external_components` `type: git` with `ref: v1.1.0` (see [CHANGELOG](CHANGELOG.md)). The HA add-on cannot see a local checkout path; use `type: local` only when developing the component outside HA.
 5. **Install**, adopt the device in HA, and confirm the consumption entity updates (ERT hops are sparse — often several minutes between hits).
 
 MQTT-only users: start from [`examples/mqtt-only.yaml`](examples/mqtt-only.yaml) instead and subscribe to the topics below.
