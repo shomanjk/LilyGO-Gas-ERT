@@ -195,6 +195,8 @@ bool ErtScmComponent::dump(remote_base::RemoteReceiveData data) {
       if (meter->history)
         this->record_usage_(*meter, p.consumption);
       this->publish_(p, rssi);
+      for (auto *trigger : meter->on_reading)
+        trigger->trigger(p.consumption, rssi);
     }
   }
   return true;

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## [1.1.3] — 2026-11-16
+
+Per-meter `on_reading:` trigger and optional LED blink.
+
+- `ert_scm`: per-meter `on_reading:` automation, fired on every frame from an enabled meter (variables `consumption` raw and `rssi` dBm); needs no sensors, API or MQTT
+- Scaffold: optional onboard-LED blink on every reading, with "Blink on reading" and "Blink brightness" config entities saved on the device
+
+Pin ESPHome configs with `ref: v1.1.3`.
+
 ## [1.1.2] — 2026-10-25
 
 Today OLED graph width.

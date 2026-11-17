@@ -3,6 +3,7 @@
 # When an MQTT client is configured, publishes fixed meters/gas/{id}/… topics
 # (no MQTT discovery). HA-native API sensors work without MQTT.
 
+from esphome import automation
 import esphome.codegen as cg
 import esphome.config_validation as cv
 import esphome.final_validate as fv
@@ -10,6 +11,7 @@ from esphome.components import remote_base, sensor, sx127x, time
 from esphome.const import (
     CONF_ID,
     CONF_TIME_ID,
+    CONF_TRIGGER_ID,
     DEVICE_CLASS_GAS,
     DEVICE_CLASS_SIGNAL_STRENGTH,
     ENTITY_CATEGORY_DIAGNOSTIC,
@@ -30,6 +32,9 @@ ert_scm_ns = cg.esphome_ns.namespace("ert_scm")
 ErtScmComponent = ert_scm_ns.class_(
     "ErtScmComponent", cg.Component, remote_base.RemoteReceiverDumperBase
 )
+ReadingTrigger = ert_scm_ns.class_(
+    "ReadingTrigger", automation.Trigger.template(cg.uint32, cg.float_)
+)
 
 CONF_SX127X_ID = "sx127x_id"
 CONF_SCALE = "scale"
@@ -41,6 +46,7 @@ CONF_ENABLED = "enabled"
 CONF_CONSUMPTION = "consumption"
 CONF_HISTORY = "history"
 CONF_RSSI = "rssi"
+CONF_ON_READING = "on_reading"
 
 METER_SCHEMA = cv.Schema(
     {
@@ -68,6 +74,12 @@ METER_SCHEMA = cv.Schema(
             device_class=DEVICE_CLASS_SIGNAL_STRENGTH,
             state_class=STATE_CLASS_MEASUREMENT,
             entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
+        ),
+        # Runs on every frame from this meter, even when the reading repeats
+        # (e.g. an activity LED). Variables: `consumption` (raw, before scale)
+        # and `rssi` (dBm, NaN if not measured).
+        cv.Optional(CONF_ON_READING): automation.validate_automation(
+            {cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(ReadingTrigger)}
         ),
     }
 )
@@ -146,3 +158,9 @@ async def to_code(config):
                 rssi,
             )
         )
+        for conf in meter.get(CONF_ON_READING, []):
+            trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID])
+            cg.add(var.add_on_reading(meter[CONF_METER_ID], trigger))
+            await automation.build_automation(
+                trigger, [(cg.uint32, "consumption"), (cg.float_, "rssi")], conf
+            )

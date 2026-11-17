@@ -69,7 +69,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/shomanjk/LilyGO-Gas-ERT
-      ref: v1.1.2
+      ref: v1.1.3
     components: [ert_scm]
     refresh: 1d
 
@@ -90,6 +90,10 @@ ert_scm:
         internal: true
       rssi:                     # optional per-frame signal strength
         name: "House gas RSSI"
+      on_reading:               # optional automation on every frame
+        - logger.log:
+            format: "frame: %u raw, %.1f dBm"
+            args: ["(unsigned) consumption", rssi]
     - id: OPTIONAL_NEIGHBOR_ID
       name: Neighbor gas
       enabled: false
@@ -112,6 +116,7 @@ ert_scm:
   - It's saved to flash (ESPHome preferences, ~112 bytes) on every reading, so the graph survives reboots and OTA updates. ESPHome commits at most once per `flash_write_interval` (60 s). At one reading per 12.5 min, that's ~28 erase cycles per NVS sector per year: centuries of flash life.
   - The saved history is keyed by meter `id`, so changing the id starts a new history.
 - **Local, optional:** a per-meter `rssi:` sensor (dBm, `signal_strength`, diagnostic) is updated with each frame from an enabled meter, the same value as the `rssi` topic.
+- **Local, optional:** a per-meter `on_reading:` automation runs on every frame from an enabled meter, even when the reading repeats, after the sensors and MQTT topics are updated. It needs no sensors, API or MQTT. Variables: `consumption` (`uint32_t`, raw before `scale`) and `rssi` (`float` dBm, NaN when there's no level for the frame). `esphome/lilygo-gas-ert.yaml` uses it to blink the onboard LED.
 - **For lambdas:**
   - `id(gas_ert).seconds_since_seen(METER_ID)` returns seconds since that meter's last frame, or `-1` before the first one.
   - With `history: true`, `id(gas_ert).today_usage(METER_ID)` returns usage since local midnight (raw ÷ `scale`, NaN if there's no history yet).
