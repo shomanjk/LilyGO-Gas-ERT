@@ -180,6 +180,9 @@ remote_receiver:
 #         # Omit internal: (or false) for HA API mode; true for MQTT-only.
 #       rssi:
 #         name: "House gas RSSI"
+#       # Every frame from this meter (see the LED blink block below).
+#       on_reading:
+#         - script.execute: rx_blink
 #   # MQTT mode only:
 #   mqtt_topic_prefix: meters/gas
 
@@ -209,12 +212,65 @@ output:
 
 light:
   - platform: monochromatic
+    id: onboard_led_light
     name: "Onboard LED"
     output: onboard_led
     effects:
       - pulse:
       - strobe:
       - flicker:
+
+# --- Optional LED blink on every reading ---
+# Needs ert_scm above with `on_reading: [script.execute: rx_blink]` on the
+# meter. Works without HA or MQTT; "Blink on reading" and "Blink brightness"
+# are saved on the device. The blink drives the output directly, so the
+# "Onboard LED" light never changes state (no HA logbook entries), and it's
+# skipped while that light is on. If you also enable the OLED block, put this
+# switch in the same `switch:` list.
+# switch:
+#   - platform: template
+#     id: rx_blink_enabled
+#     name: "Blink on reading"
+#     icon: mdi:led-on
+#     entity_category: config
+#     optimistic: true
+#     restore_mode: RESTORE_DEFAULT_ON
+#
+# number:
+#   - platform: template
+#     id: rx_blink_brightness
+#     name: "Blink brightness"
+#     icon: mdi:brightness-6
+#     entity_category: config
+#     unit_of_measurement: "%"
+#     mode: slider
+#     min_value: 5
+#     max_value: 100
+#     step: 5
+#     initial_value: 100
+#     optimistic: true
+#     restore_value: true
+#
+# script:
+#   - id: rx_blink
+#     mode: restart
+#     then:
+#       - if:
+#           condition:
+#             and:
+#               - switch.is_on: rx_blink_enabled
+#               - light.is_off: onboard_led_light
+#           then:
+#             - output.set_level:
+#                 id: onboard_led
+#                 # Same gamma as the light (2.8), so 30% here looks like 30% there.
+#                 level: !lambda "return powf(id(rx_blink_brightness).state / 100.0f, 2.8f);"
+#             - delay: 80ms
+#             - if:
+#                 condition:
+#                   light.is_off: onboard_led_light
+#                 then:
+#                   - output.turn_off: onboard_led
 
 button:
   - platform: restart

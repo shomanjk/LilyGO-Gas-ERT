@@ -7,6 +7,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/sx127x/sx127x.h"
 #include "esphome/components/time/real_time_clock.h"
+#include "esphome/core/automation.h"
 #include "esphome/core/component.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
@@ -18,12 +19,17 @@
 namespace esphome {
 namespace ert_scm {
 
+/** `on_reading:` — fires once per frame from an enabled meter, even when the value repeats.
+ *  Arguments: raw consumption (before scale) and frame RSSI in dBm (NaN if not measured). */
+class ReadingTrigger : public Trigger<uint32_t, float> {};
+
 struct MeterConfig {
   uint32_t id{0};
   std::string name;
   bool enabled{true};
   sensor::Sensor *consumption_sensor{nullptr};
   sensor::Sensor *rssi_sensor{nullptr};
+  std::vector<ReadingTrigger *> on_reading;
   bool seen{false};
   uint32_t last_seen_ms{0};
   // Hourly usage for the display, saved to flash (only when `history: true`).
@@ -49,6 +55,11 @@ class ErtScmComponent : public Component, public remote_base::RemoteReceiverDump
     m.history = history;
     m.rssi_sensor = rssi;
     meters_.push_back(m);
+  }
+  void add_on_reading(uint32_t meter_id, ReadingTrigger *trigger) {
+    MeterConfig *meter = this->find_meter_(meter_id);
+    if (meter != nullptr)
+      meter->on_reading.push_back(trigger);
   }
 
   /** Seconds since the last frame from an enabled meter, or -1 if none since boot (or the id
